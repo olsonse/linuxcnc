@@ -19,6 +19,10 @@
 #include <ctype.h>              /* isspace() */
 #include <fcntl.h>
 
+#include <boost/regex.hpp>
+#include <boost/algorithm/string.hpp>
+#include <ext/stdio_filebuf.h>
+
 
 #include "config.h"
 #include "inifile.hh"
@@ -51,8 +55,61 @@ IniFile::IniFile(int _errMask, FILE *_fp)
     errMask = _errMask;
     owned = false;
 
-    if(fp != NULL)
+    if(fp != NULL) {
         LockFile();
+        /* now parse through the file in preparation of queries */
+        rewind(fp); /* must be rewound before parsing */
+        Parse(fp);
+    }
+}
+
+void IniFile::Parse(FILE *filepointer) {
+    std::string line, section;
+    int lineno = 0, lineincr = 0;
+
+    // regular expressions to process ini files
+    boost::regex section_test("\\[(.*?)\\]");
+    boost::regex value_test("(\\w+)\\s*(:?=)\\s*([^\\+]+(?!\\+{3}))");
+
+    __gnu_cxx::stdio_filebuf<char> filebuf(filepointer, std::ios::in);
+    std::istream mapfile(&filebuf);
+    // assuming we've opened the file ok into a
+    // filestream object called "mapfile"
+    while (getline(mapfile, line)) {
+        lineno += lineincr;
+        lineincr = 1;
+        boost::trim(line);
+
+        if (line.length() > 0) {
+            if (line[0] == '#' || line[0] == ';')
+                continue;
+
+            while (line.back() == '\\') {
+                std::string extra; /* scratch space for concatenation */
+                /* remove the '\' character from the previous line */
+                line.pop_back();
+
+                if (getline(mapfile, extra)) {
+                    ++lineincr;
+                    line += extra;
+                }
+            }
+
+            boost::smatch match;
+
+            if (boost::regex_search(line, match, section_test)) {
+                // any key-value pairs from here to be attributed
+                // to this new name
+                section = match[1];
+            } else if (boost::regex_search(line, match, value_test)) {
+                // set this as a key value pair on the section name
+                std::string var = match[1], op = match[2], val = match[3];
+                if (op == ":=")
+                    config[section][var].clear();
+                config[section][var].push_back(std::make_pair(val, lineno));
+            }
+        }
+    }
 }
 
 
@@ -77,6 +134,8 @@ IniFile::Open(const char *file)
     if(!LockFile())
         return(false);
 
+    /* now parse through the file in preparation of queries */
+    Parse(fp);
     return(true);
 }
 
@@ -190,6 +249,40 @@ IniFile::Find(double *result, StrDoublePair *pPair,
    @return pointer to the the variable after the '=' delimiter */
 const char *
 IniFile::Find(const char *_tag, const char *_section, int _num, int *lineno)
+#if 1
+{
+    if (_section == NULL) {
+        /* look through each section.  This is not possible to do in the order
+         * of the lines of the original file.  For now, return 'not found' */
+        ThrowException(ERR_TAG_NOT_FOUND);
+        return (NULL);
+    }
+    Config::iterator sec = config.find(_section);
+    if (sec == config.end()) {
+        ThrowException(ERR_SECTION_NOT_FOUND);
+        return (NULL);
+    }
+
+    typedef typename Config::value_type::second_type Vars;
+    Vars::iterator tag = sec->second.find(_tag);
+
+    --_num; /* change to an index. */
+    size_t num = _num;
+    if (_num < 0)
+      num = 0;
+
+    if (tag == sec->second.end() || tag->second.size() < (num+1)) {
+        ThrowException(ERR_TAG_NOT_FOUND);
+        return (NULL);
+    }
+
+    typedef typename Vars::value_type::second_type::value_type Val;
+    Val val = tag->second[num];
+    if (lineno)
+        *lineno = val.second;
+    return val.first.c_str();
+}
+#else
 {
     // WTF, return a pointer to the middle of a local buffer?
     // FIX: this is totally non-reentrant.
@@ -377,6 +470,7 @@ IniFile::Find(const char *_tag, const char *_section, int _num, int *lineno)
     ThrowException(ERR_TAG_NOT_FOUND);
     return(NULL);
 }
+#endif
 
 const char *
 IniFile::FindString(char *dest, size_t n, const char *_tag, const char *_section, int _num, int *lineno)

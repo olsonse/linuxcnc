@@ -139,9 +139,13 @@ proc parse_ini {filename} {
         set line [string trim $line]
         if {[regexp {^\[(.*)\]\s*$} $line _ section]} {
             # nothing
-        } elseif {[regexp {^([^#]+?)\s*=\s*(.*?)\s*$} $line _  k v]} {
+        } elseif {[regexp {^([^#]+?)\s*(:?=)\s*(.*?)\s*$} $line _  k op v]} {
             upvar $section s
-            lappend s([string trim $k]) $v
+            if {$op == ":="} {
+                set s([string trim $k]) [list $v]
+            } else {
+                lappend s([string trim $k]) $v
+            }
         }
     }
 

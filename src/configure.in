@@ -109,6 +109,54 @@ AS_IF([test "x$ac_cv_boost_python" = xyes && test "x$BOOST_PYTHON_LIBS" != x],
 AC_SUBST([BOOST_PYTHON_LIBS])
 ])
 
+# adapted from AX_BOOST_PYTHON_MURRAYC
+# http://ftp.gnome.org/pub/GNOME/sources/glom/1.19/
+m4_define([AX_BOOST_REGEX_EMC],
+[
+AC_LANG_PUSH([C++])
+saved_LIBS=$LIBS
+# Note that this expects boost/ to be at some top-level such as /usr/include/
+# We couldn't check for anything else anyway because there's no pkg-config file to tell us where it is
+AC_CACHE_CHECK([whether the Boost::Regex headers are available],
+               [ac_cv_boost_regex],
+               [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <boost/regex.hpp>
+using boost::regex;
+]], [])],
+    [ac_cv_boost_regex=yes], [ac_cv_boost_regex=no])])
+
+AS_IF([test "x$ac_cv_boost_regex" = xyes],
+[
+  BOOST_REGEX_LIBS=
+  ax_regex_lib=boost_regex
+  AC_ARG_WITH([boost-regex],
+    AS_HELP_STRING(
+        [--with-boost-regex],
+        [Specify the boost regex shared library to use. Defaults to
+        boost_regex.]
+    ),
+  [if test "x$with_boost_regex" != xno; then
+    ax_regex_lib=$with_boost_regex
+  fi])
+  AC_MSG_CHECKING([for boost::regex shared library])
+  for ax_lib in "$ax_regex_lib" boost_regex
+  do
+    LIBS="$saved_LIBS -l$ax_lib"
+    AC_LINK_IFELSE(
+      [AC_LANG_PROGRAM([[#include <boost/regex.hpp>]], [[boost::regex reg;]])],
+      [BOOST_REGEX_LIBS="-l$ax_lib"; break])
+  done
+  AS_IF([test "x$BOOST_REGEX_LIBS" != x], [ax_result=$BOOST_REGEX_LIBS], [ax_result=])
+  AC_MSG_RESULT([$ax_result])
+])
+LIBS=$saved_LIBS
+AC_LANG_POP([C++])
+AS_IF([test "x$ac_cv_boost_regex" = xyes && test "x$BOOST_REGEX_LIBS" != x],
+      [AC_DEFINE([HAVE_BOOST_REGEX], [1],
+                 [define if the Boost::Regex headers and library are available])])
+AC_SUBST([BOOST_REGEX_LIBS])
+])
+
 AC_MSG_CHECKING(build toplevel)
 BUILD_TOPLEVEL="$(cd ..; pwd -P)"
 AC_MSG_RESULT($BUILD_TOPLEVEL)
@@ -1599,6 +1647,9 @@ AC_SUBST(PYTHON_LIBS)
 # This does an AC_SUBST() of BOOST_PYTHON_LIBS
 # For the CFLAGS we must assume that boost is at the top-level, for instance in /usr/include/:
 AX_BOOST_PYTHON_EMC
+
+# Get the LIBS for boost::regex
+AX_BOOST_REGEX_EMC
 
 AC_CHECK_HEADER($INCLUDEPY/Python.h,[],
     [AC_MSG_ERROR([Required header Python.h missing.  Install it, or specify --disable-python to skip the parts of LinuxCNC that depend on Python])])

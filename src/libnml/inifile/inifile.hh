@@ -16,6 +16,10 @@
 #ifndef INIFILE_HH
 #define INIFILE_HH
 
+#include <map>
+#include <string>
+#include <vector>
+
 #include <inifile.h>
 #include <string>
 #include <boost/lexical_cast.hpp>
@@ -53,6 +57,7 @@ public:
                                 ~IniFile(void){ Close(); }
 
     bool                        Open(const char *file);
+    void                        Parse(FILE *filepointer);
     bool                        Close(void);
     bool                        IsOpen(void){ return(fp != NULL); }
 
@@ -132,6 +137,16 @@ protected:
         const char              *pStr;
         double                   value;
     };
+
+    typedef std::map<
+        std::string,     /* section name */
+        std::map<
+            std::string, /* variable name */
+            std::vector<
+                std::pair<std::string, int> > /* (values,lineno) pair */
+        >
+    > Config;
+    Config config;
 
 
     ErrorCode                   Find(double *result, StrDoublePair *,
