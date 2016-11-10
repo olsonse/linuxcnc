@@ -1,0 +1,8 @@
+Tormach
+
+www.tormach.com
+
+Configurations for the Tormach PCNC-1100 Series I, II, & III, the PCNC-770, and
+the PCNC-440 where these machines are controlled/interfaced by the Mesa
+5i25/6i25 Anything I/O cards.  The firmware that is used by PathPilot
+(distributed by Tormach) has been tested to work with these configurations.

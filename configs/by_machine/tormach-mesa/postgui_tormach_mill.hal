@@ -1,0 +1,33 @@
+# Include your customized HAL commands here
+# The commands in this file are run after the GUI starts and has the opportunity to create the needed pins
+
+# This next bit shows the amount of time that has elapsed since program start
+loadrt time names=prog-timer
+addf prog-timer   servo-thread
+net prog-is-idle  prog-not-idle.in          <= halui.program.is-idle
+net cycle-timer   prog-timer.start          <= prog-not-idle.out
+net cycle-seconds pyvcp.cycle-time.seconds  <= prog-timer.seconds
+net cycle-minutes pyvcp.cycle-time.minutes  <= prog-timer.minutes
+net cycle-hours   pyvcp.cycle-time.hours    <= prog-timer.hours
+
+# Mesa card watchdog
+net hm2_5i25.0.watchdog.has-bit                                         => pyvcp.watchdog-led
+
+##### stuff for Spindle control to interact with user #####
+net belt-select belt-toggle.out higear-not-used.in gearchange.0.sel     => pyvcp.highgear-led
+net logear higear-not-used.out                                          => pyvcp.lowgear-led
+net speeder-select speeder-toggle.out gearchange.1.sel                  => pyvcp.speeder-installed-led
+net beltswap belt-toggle.in                                             <= pyvcp.gearchange-button
+net spindle-on                                                          => pyvcp.gearchange-button.disable
+net speederswap speeder-toggle.in                                       <= pyvcp.speeder-change-button
+net spindle-on                                                          <= pyvcp.speeder-change-button.disable
+net spindle-speed                                                       => pyvcp.spindle-speed-meter
+net spindle-speed-total                                                 => pyvcp.spindle-speed-number
+
+
+# things for the shuttle express controller
+net sxp.x-button-ff                                                      => pyvcp.shuttle-x
+net sxp.y-button-ff                                                      => pyvcp.shuttle-y
+net sxp.z-button-ff                                                      => pyvcp.shuttle-z
+net sxp.a-button-ff                                                      => pyvcp.shuttle-a
+net sxp.jog-increment-scaled                                             => pyvcp.shuttle-step
